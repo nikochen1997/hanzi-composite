@@ -1,0 +1,26 @@
+{
+  "name": "hanzi-composite-generator",
+  "version": "1.0.0",
+  "description": "汉字合体字生成器 - 将四字词语合成艺术书法字",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "keywords": [
+    "汉字",
+    "书法",
+    "AI生成",
+    "合体字"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

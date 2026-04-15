@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>汉字合成器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="phone">
+    <!-- 状态栏 -->
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <span style="font-size:14px;">●●●</span>
+      <span>100%</span>
+    </div>
+
+    <!-- ===== 合成页面 ===== -->
+    <div class="page active" id="composePage">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-title">汉字合成器</div>
+        <div class="header-sub">把你的四字词语合成一个字</div>
+      </div>
+
+      <!-- 内容区 -->
+      <div class="content">
+        <!-- 输入状态 -->
+        <div class="state active" id="inputState">
+          <div class="card">
+            <div class="card-label">输入汉字</div>
+            <div class="char-inputs" id="charInputs">
+              <!-- 动态生成 -->
+            </div>
+
+            <div class="hint-chips" id="hintChips">
+              <!-- 动态生成 -->
+            </div>
+          </div>
+
+          <button class="btn-primary" id="composeBtn" onclick="startCompose()">合 成</button>
+
+          <div class="section-label">最近合成</div>
+          <div class="history-row" id="recentList">
+            <!-- 动态生成 -->
+          </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div class="state" id="loadingState">
+          <div class="card">
+            <div class="loading-wrap">
+              <div class="brush-ring">
+                <svg viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="52"/>
+                  <circle class="progress" cx="60" cy="60" r="52"/>
+                </svg>
+                <div class="brush-inner">
+                  <div class="brush-stroke">
+                    <div class="stroke-line"></div>
+                    <div class="stroke-line"></div>
+                    <div class="stroke-line"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="loading-text" id="loadingText">正在拆解汉字结构...</div>
+              <div class="steps" style="display:flex;gap:6px;align-items:center;">
+                <div class="step-dot active" id="d0"></div>
+                <div class="step-dot" id="d1"></div>
+                <div class="step-dot" id="d2"></div>
+                <div class="step-dot" id="d3"></div>
+              </div>
+              <div class="loading-dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 结果状态 -->
+        <div class="state" id="resultState">
+          <div class="card">
+            <div class="result-area">
+              <div class="dual-image-container" id="dualImages">
+                <!-- 双图展示区域 -->
+              </div>
+              <div class="result-word" id="resultWord">请选择你喜欢的版本</div>
+              <div class="result-actions" id="resultActions" style="opacity:0.5;pointer-events:none;">
+                <button class="btn-action-secondary btn-save" id="saveBtn" onclick="saveResult()">保存图片</button>
+                <button class="btn-action-primary" onclick="regenerate()">重新生成</button>
+              </div>
+              <div class="text-link" onclick="backToInput()">换个词试试</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 历史页面 ===== -->
+    <div class="page" id="historyPage">
+      <div class="header header-with-action">
+        <div>
+          <div class="header-title">我的合成</div>
+          <div class="header-sub" id="historyCount">共 0 个合成字</div>
+        </div>
+        <div class="header-action" id="editBtn" onclick="toggleEdit()">编辑</div>
+      </div>
+
+      <div class="content">
+        <div class="edit-bar">
+          <div class="edit-label" id="editLabel">点击卡片查看详情</div>
+        </div>
+
+        <div class="history-grid" id="historyGrid">
+          <!-- 动态生成 -->
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <div class="empty-icon"></div>
+          <div class="empty-text">还没有合成记录</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab栏 -->
+    <div class="tab-bar">
+      <div class="tab-item active" onclick="switchTab('compose')">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 4v16m-8-8h16"/>
+          </svg>
+        </div>
+        <span>合成</span>
+      </div>
+      <div class="tab-item" onclick="switchTab('history')">
+        <div class="tab-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <span>历史</span>
+      </div>
+    </div>
+
+    <!-- 隐藏输入框 -->
+    <input type="text" id="hiddenInput" maxlength="1">
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>汉字合成器</title>
+  <style>
+    /* ===== 基础重置 ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif; }
+    body { display: flex; justify-content: center; align-items: center; background: #f0f0f0; padding: 20px; }
+
+    /* ===== 设计系统颜色变量 ===== */
+    :root {
+      --primary: #534AB7;
+      --primary-light: #EEEDFE;
+      --primary-border: #AFA9EC;
+      --primary-dark: #3C3489;
+      --delete: #E24B4A;
+
+      --bg-primary: #FFFFFF;
+      --bg-secondary: #F5F5F5;
+      --bg-tertiary: #F2F2F7;
+
+      --text-primary: #000000;
+      --text-secondary: #666666;
+      --text-tertiary: #999999;
+
+      --border-primary: #C8C8C8;
+      --border-secondary: #E0E0E0;
+      --border-tertiary: #E8E8E8;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+    }
+
+    /* ===== 手机框架 ===== */
+    .phone {
+      width: 390px;
+      height: 844px;
+      background: var(--bg-tertiary);
+      border-radius: 48px;
+      border: 0.5px solid var(--border-secondary);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+
+    /* ===== 状态栏 ===== */
+    .statusbar {
+      height: 44px;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      flex-shrink: 0;
+    }
+
+    /* ===== Header ===== */
+    .header {
+      background: var(--bg-primary);
+      border-bottom: 0.5px solid var(--border-tertiary);
+      padding: 12px 20px 16px;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 22px; font-weight: 500; color: var(--text-primary); letter-spacing: -0.5px; }
+    .header-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* 历史页header */
+    .header-with-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .header-action {
+      font-size: 13px;
+      color: var(--primary);
+      cursor: pointer;
+      padding-bottom: 2px;
+    }
+
+    /* ===== 主内容区 ===== */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      padding-bottom: 80px;
+    }
+    .content::-webkit-scrollbar { display: none; }
+
+    /* ===== 卡片通用 ===== */
+    .card {
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      border: 0.5px solid var(--border-tertiary);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    /* ===== 字数选择器 ===== */
+    .count-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .count-btn {
+      flex: 1;
+      padding: 9px 0;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-secondary);
+      background: var(--bg-secondary);
+      font-size: 14px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .count-btn.active {
+      background: var(--primary-light);
+      border-color: var(--primary-border);
+      color: var(--primary-dark);
+      font-weight: 500;
+    }
+
+    /* ===== 汉字输入框 ===== */
+    .char-inputs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    .char-box {
+      width: 72px;
+      height: 72px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-secondary);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .char-box.empty {
+      border-style: dashed;
+      color: var(--text-tertiary);
+    }
+    .char-box.empty.active {
+      color: transparent;
+    }
+    .char-box.active {
+      border: 1.5px solid var(--primary);
+      background: var(--primary-light);
+    }
+    .char-box.has-content {
+      font-weight: 500;
+    }
+    /* 光标动画 */
+    .char-box.active::after {
+      content: '|';
+      position: absolute;
+      font-size: 20px;
+      color: var(--primary);
+      animation: blink 1s infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    /* ===== 预设词提示 ===== */
+    .hint-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .hint-chip {
+      padding: 5px 12px;
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border-tertiary);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .hint-chip:hover, .hint-chip:active {
+      background: var(--primary-light);
+      border-color: var(--primary-border);
+      color: var(--primary-dark);
+    }
+
+    /* ===== 按钮 ===== */
+    .btn-primary {
+      width: 100%;
+      padding: 15px;
+      background: var(--primary);
+      border: none;
+      border-radius: var(--radius-lg);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      text-align: center;
+    }
+    .btn-primary:active { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      flex: 1;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-secondary);
+      background: var(--bg-primary);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .btn-secondary:active { background: var(--bg-secondary); }
+
+    /* ===== 最近合成 ===== */
+    .section-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin: 20px 0 8px;
+    }
+    .history-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .history-row::-webkit-scrollbar { display: none; }
+    .history-item {
+      flex-shrink: 0;
+      width: 72px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .history-thumb {
+      width: 60px;
+      height: 60px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      overflow: hidden;
+    }
+    .history-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .history-word {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    /* ===== 加载状态 ===== */
+    .loading-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 48px 0;
+    }
+    .brush-ring {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brush-ring svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 120px; height: 120px;
+      transform: rotate(-90deg);
+    }
+    .brush-ring svg circle {
+      fill: none;
+      stroke: #EEEDFE;
+      stroke-width: 3;
+    }
+    .brush-ring svg circle.progress {
+      stroke: #534AB7;
+      stroke-dasharray: 326;
+      stroke-dashoffset: 326;
+      stroke-linecap: round;
+      animation: spin 2s ease-in-out infinite;
+    }
+    @keyframes spin {
+      0%   { stroke-dashoffset: 326; }
+      50%  { stroke-dashoffset: 60; }
+      100% { stroke-dashoffset: 326; }
+    }
+    .brush-inner {
+      width: 80px;
+      height: 80px;
+      background: #EEEDFE;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .brush-stroke {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+    .stroke-line {
+      height: 3px;
+      background: #534AB7;
+      border-radius: 2px;
+      animation: grow 1.8s ease-in-out infinite;
+    }
+    .stroke-line:nth-child(1) { width: 28px; animation-delay: 0s; }
+    .stroke-line:nth-child(2) { width: 20px; animation-delay: 0.2s; }
+    .stroke-line:nth-child(3) { width: 24px; animation-delay: 0.4s; }
+    @keyframes grow {
+      0%, 100% { opacity: 0.3; transform: scaleX(0.7); }
+      50% { opacity: 1; transform: scaleX(1); }
+    }
+    .step-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #CECBF6;
+    }
+    .step-dot.active {
+      background: #534AB7;
+      width: 18px;
+      border-radius: 3px;
+      transition: all 0.3s ease;
+    }
+    .loading-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      height: 20px;
+    }
+    .loading-dots {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: bounce 1.2s infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ===== 结果状态 ===== */
+    .result-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .result-image {
+      width: 220px;
+      height: 220px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-lg);
+      border: 0.5px solid var(--border-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 130px;
+      position: relative;
+      overflow: hidden;
+    }
+    .result-image img { width: 100%; height: 100%; object-fit: cover; }
+    .watermark {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      opacity: 0.8;
+    }
+    .result-word {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+    .btn-action-primary {
+      flex: 1;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: var(--primary);
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-action-primary:active { opacity: 0.9; }
+    .btn-save { background: var(--primary-light); color: var(--primary-dark); border: 0.5px solid var(--primary-border); }
+    .btn-save.saved { background: var(--primary); color: #fff; }
+
+    /* ===== 历史页面 ===== */
+    .edit-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+      margin-bottom: 12px;
+    }
+    .edit-label { font-size: 12px; color: var(--text-tertiary); }
+    .edit-btn { font-size: 13px; color: var(--primary); cursor: pointer; }
+    .history-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .history-card {
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      border: 0.5px solid var(--border-tertiary);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.1s;
+    }
+    .history-card:active { transform: scale(0.98); }
+    .card-glyph {
+      width: 100%;
+      aspect-ratio: 1;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-glyph img { width: 100%; height: 100%; object-fit: cover; }
+    .card-word {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      text-align: center;
+    }
+    .card-date {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+    .card-btn {
+      flex: 1;
+      padding: 7px 0;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-secondary);
+      background: var(--bg-secondary);
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: center;
+    }
+    .card-btn.save {
+      background: var(--primary-light);
+      border-color: var(--primary-border);
+      color: var(--primary-dark);
+    }
+    /* 删除模式 */
+    .delete-dot {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--delete);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #fff;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .history-card.edit-mode .delete-dot { display: flex; }
+    .history-card.edit-mode .card-actions { display: none; }
+
+    /* 空状态 */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 60px 0;
+    }
+    .empty-icon {
+      width: 72px;
+      height: 72px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      color: var(--text-tertiary);
+    }
+    .empty-text { font-size: 14px; color: var(--text-secondary); }
+
+    /* ===== Tab栏 ===== */
+    .tab-bar {
+      height: 56px;
+      background: var(--bg-primary);
+      border-top: 0.5px solid var(--border-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+      padding-bottom: 4px;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .tab-item.active { color: var(--primary); }
+    .tab-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .tab-item.active .tab-icon { background: var(--primary-light); }
+
+    /* ===== 页面切换动画 ===== */
+    .page {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+    .page.active { display: flex; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== 状态切换 ===== */
+    .state { display: none; }
+    .state.active { display: block; }
+
+    /* ===== 隐藏输入框 ===== */
+    #hiddenInput {
+      position: absolute;
+      left: -1000px;
+      opacity: 0;
+    }
+
+    /* ===== 响应式适配 ===== */
+    @media (max-height: 900px) {
+      .phone { transform: scale(0.9); }
+    }
+    @media (max-height: 800px) {
+      .phone { transform: scale(0.85); }
+    }
+    @media (max-width: 430px) {
+      body { padding: 0; background: var(--bg-tertiary); }
+      .phone {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <!-- 状态栏 -->
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <span style="font-size:14px;">●●●</span>
+      <span>100%</span>
+    </div>
+
+    <!-- ===== 合成页面 ===== -->
+    <div class="page active" id="composePage">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-title">汉字合成器</div>
+        <div class="header-sub">把你的词语合成一个字</div>
+      </div>
+
+      <!-- 内容区 -->
+      <div class="content">
+        <!-- 输入状态 -->
+        <div class="state active" id="inputState">
+          <div class="card">
+            <div class="card-label">选择字数</div>
+            <div class="count-selector">
+              <div class="count-btn" onclick="setCount(2)">2 个字</div>
+              <div class="count-btn" onclick="setCount(3)">3 个字</div>
+              <div class="count-btn active" onclick="setCount(4)">4 个字</div>
+            </div>
+
+            <div class="card-label">输入汉字</div>
+            <div class="char-inputs" id="charInputs">
+              <!-- 动态生成 -->
+            </div>
+
+            <div class="hint-chips" id="hintChips">
+              <!-- 动态生成 -->
+            </div>
+          </div>
+
+          <button class="btn-primary" id="composeBtn" onclick="startCompose()">合 成</button>
+
+          <div class="section-label">最近合成</div>
+          <div class="history-row" id="recentList">
+            <!-- 动态生成 -->
+          </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div class="state" id="loadingState">
+          <div class="card">
+            <div class="loading-wrap">
+              <div class="brush-ring">
+                <svg viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="52"/>
+                  <circle class="progress" cx="60" cy="60" r="52"/>
+                </svg>
+                <div class="brush-inner">
+                  <div class="brush-stroke">
+                    <div class="stroke-line"></div>
+                    <div class="stroke-line"></div>
+                    <div class="stroke-line"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="loading-text" id="loadingText">正在思考中...</div>
+              <div class="steps" style="display:flex;gap:6px;align-items:center;">
+                <div class="step-dot active" id="d0"></div>
+                <div class="step-dot" id="d1"></div>
+                <div class="step-dot" id="d2"></div>
+                <div class="step-dot" id="d3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 结果状态 -->
+        <div class="state" id="resultState">
+          <div class="card">
+            <div class="result-area">
+              <div class="result-image" id="resultImage">
+                <span style="font-size:130px;color:var(--text-primary);">?</span>
+                <div class="watermark">汉字合成器</div>
+              </div>
+              <div class="result-word" id="resultWord">等待合成...</div>
+              <div class="result-actions">
+                <button class="btn-secondary" onclick="regenerate()">再来一张</button>
+                <button class="btn-action-primary btn-save" id="saveBtn" onclick="saveResult()">保存图片</button>
+              </div>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="backToInput()">重新输入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 历史页面 ===== -->
+    <div class="page" id="historyPage">
+      <div class="header header-with-action">
+        <div>
+          <div class="header-title">历史记录</div>
+          <div class="header-sub" id="historyCount">共 0 个合成字</div>
+        </div>
+        <div class="header-action" id="editBtn" onclick="toggleEdit()">编辑</div>
+      </div>
+
+      <div class="content">
+        <div class="edit-bar">
+          <div class="edit-label" id="editLabel">长按卡片可删除</div>
+          <div class="edit-btn" id="selectAllBtn" style="display:none;" onclick="selectAll()">全选</div>
+        </div>
+
+        <div class="history-grid" id="historyGrid">
+          <!-- 动态生成 -->
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <div class="empty-icon">📷</div>
+          <div class="empty-text">暂无合成记录</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab栏 -->
+    <div class="tab-bar">
+      <div class="tab-item active" onclick="switchTab('compose')">
+        <div class="tab-icon">合</div>
+        <span>合成</span>
+      </div>
+      <div class="tab-item" onclick="switchTab('history')">
+        <div class="tab-icon">史</div>
+        <span>历史</span>
+      </div>
+    </div>
+
+    <!-- 隐藏输入框 -->
+    <input type="text" id="hiddenInput" maxlength="1">
+  </div>
+
+  <script>
+    /* ===== 数据 ===== */
+    const PRESETS = {
+      2: ['脑残', '开心', '牛逼', '加油', '幸福', '发财'],
+      3: ['心想事成', '福如东海', '逆风翻盘', '万事如意'],
+      4: ['逢考必过', '财源广进', '心想事成', '万事如意', '恭喜发财']
+    };
+
+    const LOADING_MESSAGES = [
+      '正在思考中...',
+      '拆解字形结构...',
+      '寻找最佳组合...',
+      '即将完成...'
+    ];
+
+    // API Keys (从 localStorage 读取或提示输入)
+    let apiKeys = {
+      anthropic: localStorage.getItem('anthropic_key') || '',
+      replicate: localStorage.getItem('replicate_key') || ''
+    };
+
+    // IDS 数据 Map
+    let idsMap = new Map();
+    let idsLoaded = false;
+
+    // 历史记录
+    let history = JSON.parse(localStorage.getItem('hanzi_demo_history')) || [];
+
+    /* ===== 状态 ===== */
+    let currentCount = 4;
+    let inputChars = ['', '', '', ''];
+    let activeIndex = 0;
+    let editMode = false;
+    let currentResult = null;
+    let loadingTimer = null;
+
+    /* ===== IDS 解析函数 ===== */
+    const IDS_RANGE = /[\u2FF0-\u2FFB]/;
+    const IDS_OPERATORS = {
+      '\u2FF0': { name: '左右', type: 'LR', parts: 2 },
+      '\u2FF1': { name: '上下', type: 'TB', parts: 2 },
+      '\u2FF2': { name: '左中右', type: 'LMR', parts: 3 },
+      '\u2FF3': { name: '上中下', type: 'TMB', parts: 3 },
+      '\u2FF4': { name: '全包围', type: 'FULL', parts: 2 },
+      '\u2FF5': { name: '上三包围', type: 'TOP3', parts: 2 },
+      '\u2FF6': { name: '下三包围', type: 'BOT3', parts: 2 },
+      '\u2FF7': { name: '左三包围', type: 'LEFT3', parts: 2 },
+      '\u2FF8': { name: '左上包围', type: 'TL', parts: 2 },
+      '\u2FF9': { name: '右上包围', type: 'TR', parts: 2 },
+      '\u2FFA': { name: '左下包围', type: 'BL', parts: 2 },
+      '\u2FFB': { name: '交叉重叠', type: 'OVERLAP', parts: 2 },
+    };
+
+    function isIDSOperator(char) {
+      const code = char.charCodeAt(0);
+      return code >= 0x2FF0 && code <= 0x2FFB;
+    }
+
+    function extractDirectComponents(expr) {
+      if (!IDS_RANGE.test(expr)) return [expr];
+      let firstOpIndex = -1;
+      for (let i = 0; i < expr.length; i++) {
+        if (isIDSOperator(expr[i])) { firstOpIndex = i; break; }
+      }
+      if (firstOpIndex === -1) return [expr];
+      const remaining = expr.substring(firstOpIndex + 1);
+      const components = [];
+      let current = '';
+      let depth = 0;
+      for (const char of remaining) {
+        if (isIDSOperator(char)) {
+          if (depth === 0 && current) { components.push(current); current = ''; }
+          depth++;
+          current += char;
+        } else {
+          current += char;
+        }
+      }
+      if (current) components.push(current);
+      if (components.length === 1 && components[0] === expr) {
+        return remaining.split('').filter(c => !isIDSOperator(c));
+      }
+      return components;
+    }
+
+    function parseIDSLine(line) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return null;
+      const parts = trimmed.split('\t');
+      if (parts.length < 3) return null;
+      const unicode = parts[0].trim();
+      const char = parts[1].trim();
+      const idsDesc = parts[2].trim().split('\t')[0].trim();
+      if (!char || !idsDesc) return null;
+      const hasIDS = IDS_RANGE.test(idsDesc);
+      if (!hasIDS) {
+        return { unicode, char, structure: null, structureName: null, components: [], isBasic: true, raw: idsDesc };
+      }
+      let structure = null;
+      for (const c of idsDesc) {
+        if (isIDSOperator(c)) { structure = c; break; }
+      }
+      const opInfo = IDS_OPERATORS[structure] || { name: '未知', type: 'UNKNOWN', parts: 2 };
+      const components = extractDirectComponents(idsDesc);
+      return { unicode, char, structure, structureName: opInfo.name, structureType: opInfo.type, parts: opInfo.parts, components, isBasic: false, raw: idsDesc };
+    }
+
+    function extractBaseComponents(char, visited = new Set(), maxDepth = 5) {
+      if (maxDepth <= 0) return [char];
+      if (visited.has(char)) return [char];
+      visited.add(char);
+      const data = idsMap.get(char);
+      if (!data || data.isBasic || !data.components || data.components.length === 0) return [char];
+      const components = [];
+      for (const comp of data.components) {
+        if (comp.length === 1) {
+          if (idsMap.has(comp)) {
+            components.push(...extractBaseComponents(comp, visited, maxDepth - 1));
+          } else {
+            components.push(comp);
+          }
+        } else {
+          const chars = comp.split('').filter(c => {
+            const code = c.charCodeAt(0);
+            return (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF) || (code >= 0x20000 && code <= 0x2EBEF);
+          });
+          if (chars.length > 0) {
+            for (const c of chars) {
+              if (idsMap.has(c)) {
+                components.push(...extractBaseComponents(c, visited, maxDepth - 1));
+              } else {
+                components.push(c);
+              }
+            }
+          } else {
+            components.push(comp);
+          }
+        }
+      }
+      return components;
+    }
+
+    function getComponentsDescription(data) {
+      if (data.isBasic) return '基础字符';
+      if (!data.components || data.components.length === 0) return '无组件信息';
+      const simplified = data.components.map(comp => comp.length <= 2 ? comp : comp.slice(-2));
+      return `[${simplified.join(', ')}]`;
+    }
+
+    function analyzeWord(word) {
+      const charAnalysis = [];
+      const allBaseComponents = [];
+      const componentCount = new Map();
+      const skippedChars = [];
+      for (const char of word) {
+        const code = char.charCodeAt(0);
+        const isCJK = (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF) || (code >= 0x20000 && code <= 0x2EBEF);
+        if (!isCJK) { skippedChars.push(char); continue; }
+        if (!idsMap.has(char)) { skippedChars.push(char); continue; }
+        const data = idsMap.get(char);
+        const baseComponents = extractBaseComponents(char);
+        charAnalysis.push({ char, unicode: data.unicode, structure: data.structure, structureName: data.structureName || '基础字符', componentsDescription: getComponentsDescription(data), components: data.components || [], baseComponents: [...new Set(baseComponents)], isBasic: data.isBasic || false });
+        for (const comp of baseComponents) {
+          allBaseComponents.push(comp);
+          componentCount.set(comp, (componentCount.get(comp) || 0) + 1);
+        }
+      }
+      const repeatedComponents = [];
+      for (const [comp, count] of componentCount) {
+        if (count >= 2) repeatedComponents.push({ component: comp, count });
+      }
+      repeatedComponents.sort((a, b) => b.count - a.count);
+      const uniqueComponents = [...new Set(allBaseComponents)];
+      return { charAnalysis, allBaseComponents, uniqueComponents, componentCount, repeatedComponents, skippedChars, validCharCount: charAnalysis.length };
+    }
+
+    function buildMergeStrategy(word) {
+      const analysis = analyzeWord(word);
+      if (analysis.validCharCount === 0) return { error: '没有找到可合成的汉字', word, analysis };
+      if (analysis.validCharCount === 1) return { error: '请至少输入2个字', word, analysis };
+      const sortedByComplexity = [...analysis.charAnalysis].sort((a, b) => (b.baseComponents?.length || 0) - (a.baseComponents?.length || 0));
+      const semanticCore = sortedByComplexity[0].char;
+      const { repeatedComponents, uniqueComponents } = analysis;
+      let template = {};
+      if (repeatedComponents.length > 0) {
+        const outer = repeatedComponents[0].component;
+        const inner = uniqueComponents.filter(c => c !== outer);
+        if (inner.length <= 2) {
+          template = { template: 'wrap', templateName: '外框包围型', outerComponent: outer, innerLayout: inner.length === 1 ? 'single' : 'leftright', innerComponents: inner.slice(0, 2) };
+        } else if (inner.length === 3) {
+          template = { template: 'wrap', templateName: '外框品字型', outerComponent: outer, innerLayout: 'pinto', innerComponents: inner.slice(0, 3) };
+        } else {
+          template = { template: 'wrap', templateName: '外框网格型', outerComponent: outer, innerLayout: 'grid', innerComponents: inner.slice(0, 4) };
+        }
+      } else {
+        const total = uniqueComponents.length;
+        if (total === 2) {
+          template = { template: 'leftright', templateName: '左右结构', outerComponent: null, innerLayout: 'leftright', innerComponents: uniqueComponents.slice(0, 2) };
+        } else if (total === 3) {
+          template = { template: 'pinto', templateName: '品字结构', outerComponent: null, innerLayout: 'pinto', innerComponents: uniqueComponents.slice(0, 3) };
+        } else if (total >= 4) {
+          template = { template: 'grid', templateName: '田字格结构', outerComponent: null, innerLayout: 'grid', innerComponents: uniqueComponents.slice(0, 4) };
+        } else {
+          template = { template: 'single', templateName: '单字结构', outerComponent: null, innerLayout: 'single', innerComponents: uniqueComponents.slice(0, 1) };
+        }
+      }
+      let description = '';
+      if (template.outerComponent) {
+        description = `以"${template.outerComponent}"为外框，`;
+        switch (template.innerLayout) {
+          case 'single': description += `内部是"${template.innerComponents[0]}"`; break;
+          case 'leftright': description += `内部左侧是"${template.innerComponents[0]}"，右侧是"${template.innerComponents[1]}"`; break;
+          case 'pinto': description += `内部上方是"${template.innerComponents[0]}"，下方左右是"${template.innerComponents[1]}"和"${template.innerComponents[2]}"`; break;
+          case 'grid': description += `内部按田字格排列：左上"${template.innerComponents[0]}"、右上"${template.innerComponents[1]}"、左下"${template.innerComponents[2]}"、右下"${template.innerComponents[3]}"`; break;
+        }
+      } else {
+        switch (template.template) {
+          case 'leftright': description = `左右结构：左侧"${template.innerComponents[0]}"，右侧"${template.innerComponents[1]}"`; break;
+          case 'pinto': description = `品字结构：上方"${template.innerComponents[0]}"，下方"${template.innerComponents[1]}"和"${template.innerComponents[2]}"`; break;
+          case 'grid': description = `田字格结构：左上"${template.innerComponents[0]}"、右上"${template.innerComponents[1]}"、左下"${template.innerComponents[2]}"、右下"${template.innerComponents[3]}"`; break;
+          case 'single': description = `单字结构：${template.innerComponents[0]}`; break;
+        }
+      }
+      return { word, ...template, semanticCore, description, analysis };
+    }
+
+    /* ===== 新合成流程：三阶段 API ===== */
+
+    // 阶段一：获取合成策略
+    async function getStrategy(word, components, previousSuggestion = null) {
+      const apiKey = apiKeys.anthropic;
+      if (!apiKey) throw new Error('未设置 Claude API Key');
+
+      const suggestionHint = previousSuggestion ? `\n\n注意：上次合成的问题主要在"${previousSuggestion}"，这次请重点改进这个方面。` : '';
+
+      const prompt = `你是一个汉字合成专家。用户输入了"${word}"，这几个字的部件分别是：
+${components.map((c, i) => `${word[i]}: ${c.components.join(', ')}`).join('\n')}
+
+请先判断合成策略类型：
+- 类型A（结构重组）：把每个字的核心部件提取出来，按汉字结构规则重新排布，合成后像一个真实存在的汉字。适合祝福语、成语。
+- 类型B（视觉替代）：找一个主体字，用其他字替换主体字的某个部件，产生视觉双关。适合有趣的词、流行语。
+
+然后给出具体合成方案，包括：
+1. 选择哪种类型
+2. 每个字取哪个部件（或哪个字做主体）
+3. 部件的空间排布方式（上下/左右/包围）
+4. 最终合成字的整体结构描述
+${suggestionHint}
+
+最后输出一段英文图像生成prompt，要求：
+- 描述一个看起来像单个汉字的艺术字形
+- 黑色毛笔书法，白色背景，正方形构图
+- 字形要有整体感，像真实存在的汉字
+- prompt控制在80词以内
+
+只输出JSON格式：
+{
+  "type": "A或B",
+  "strategy": "策略描述",
+  "components": ["部件1", "部件2"],
+  "layout": "布局描述",
+  "prompt": "英文图像生成prompt"
+}`;
+
+      const response = await fetch('/api/anthropic/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+      });
+
+      if (!response.ok) throw new Error('Claude API 请求失败');
+      const data = await response.json();
+      const text = data.content[0].text.trim();
+
+      // 提取 JSON
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        return JSON.parse(text);
+      } catch (e) {
+        console.error('JSON解析失败:', text);
+        throw new Error('策略解析失败');
+      }
+    }
+
+    // 阶段二：生成图像
+    async function generateImage(prompt) {
+      const apiToken = apiKeys.replicate;
+      if (!apiToken) throw new Error('未设置 SiliconFlow API Key');
+
+      const createResponse = await fetch('https://api.siliconflow.cn/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'Qwen/Qwen-Image',
+          prompt: prompt,
+          image_size: '512x512',
+          num_inference_steps: 4
+        })
+      });
+
+      if (!createResponse.ok) {
+        const errData = await createResponse.json().catch(() => ({}));
+        throw new Error('图像生成请求失败: ' + (errData.message || createResponse.status));
+      }
+      const result = await createResponse.json();
+      if (result.images && result.images.length > 0) {
+        return result.images[0].url;
+      }
+      if (result.data && result.data.length > 0) {
+        return result.data[0].url || result.data[0].b64_json;
+      }
+      throw new Error('未获取到图片');
+    }
+
+    // pollPrediction 不再需要，保留空函数兼容
+    async function pollPrediction(predictionId, apiToken, maxAttempts = 60, interval = 1000) {
+      throw new Error('SiliconFlow 不需要轮询');
+    }
+
+    // 阶段三：逐字打分
+    async function scoreImage(word, imageUrl, charCount) {
+      const apiKey = apiKeys.anthropic;
+      if (!apiKey) throw new Error('未设置 Claude API Key');
+
+      const scorePerChar = Math.floor(100 / charCount);
+
+      const prompt = `你是一个汉字辨识专家。
+
+原词是"${word}"，这是一张把这几个字合成为一个字的图片。图片URL: ${imageUrl}
+
+请逐字检查，假设看图的人知道原词是"${word}"，能否在图中找到每个字的视觉影子？
+
+每个字满分${scorePerChar}分，找到得满分，模糊得一半分，找不到得0分。
+
+同时评估整体观感：这张图看起来像一个真实的汉字吗？
+
+输出JSON：
+{
+  "total_score": 总分,
+  "char_scores": [
+    {"char": "字1", "score": 分数, "reason": "原因"},
+    {"char": "字2", "score": 分数, "reason": "原因"}
+  ],
+  "weakest_char": "得分最低的字",
+  "overall_look": "像/不像一个真实汉字",
+  "improve_suggestion": "下次重点改进的方向"
+}`;
+
+      const response = await fetch('/api/anthropic/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+      });
+
+      if (!response.ok) {
+        // 打分失败默认给60分
+        return { total_score: 60, char_scores: [], weakest_char: '', overall_look: '解析失败', improve_suggestion: '重试' };
+      }
+
+      const data = await response.json();
+      const text = data.content[0].text.trim();
+
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        return JSON.parse(text);
+      } catch (e) {
+        console.error('打分JSON解析失败:', text);
+        return { total_score: 60, char_scores: [], weakest_char: '', overall_look: '解析失败', improve_suggestion: '重试' };
+      }
+    }
+
+    // 带重试的合成流程
+    async function composeWithRetry(word, components) {
+      const maxRetries = 3;
+      const scoreThreshold = 75;
+      let bestResult = null;
+      let bestScore = 0;
+
+      for (let i = 0; i < maxRetries; i++) {
+        // 更新loading文案
+        updateLoadingMessages(i);
+
+        // 阶段一：获取策略（第二次起把上次的improve_suggestion带入）
+        const suggestion = bestResult?.improve_suggestion;
+        const strategy = await getStrategy(word, components, suggestion);
+
+        // 阶段二：生成图片
+        const imageUrl = await generateImage(strategy.prompt);
+
+        // 阶段三：打分
+        const scoreResult = await scoreImage(word, imageUrl, word.length);
+
+        // 保存最优结果
+        if (scoreResult.total_score > bestScore) {
+          bestScore = scoreResult.total_score;
+          bestResult = {
+            imageUrl,
+            scoreResult,
+            strategy,
+            prompt: strategy.prompt,
+            type: strategy.type,
+            retryCount: i + 1
+          };
+        }
+
+        // 达到阈值直接返回
+        if (scoreResult.total_score >= scoreThreshold) break;
+      }
+
+      return bestResult;
+    }
+
+    // 根据重试次数更新loading文案
+    function updateLoadingMessages(retryIndex) {
+      const messages = [
+        ['正在思考中...', '拆解字形结构...', '寻找最佳组合...', '即将完成...'],
+        ['第一次不够满意，重新优化...', '加强薄弱部件...', '再试一次...'],
+        ['精益求精...', '最后优化...', '即将完成...']
+      ];
+
+      // 重置并开始新的文案循环
+      const msgs = messages[Math.min(retryIndex, messages.length - 1)];
+      let step = 0;
+
+      // 清除旧的定时器
+      if (loadingTimer) clearInterval(loadingTimer);
+
+      const textEl = document.getElementById('loadingText');
+      textEl.textContent = msgs[0];
+
+      // 更新进度点
+      for (let i = 0; i < 4; i++) {
+        const d = document.getElementById('d' + i);
+        d.className = 'step-dot' + (i === 0 ? ' active' : '');
+      }
+
+      // 根据当前阶段的文案长度调整
+      loadingTimer = setInterval(() => {
+        step = (step + 1) % msgs.length;
+        textEl.textContent = msgs[step];
+      }, 1800);
+    }
+
+    function checkApiKeys() {
+      if (!apiKeys.anthropic || !apiKeys.replicate) {
+        const anthropic = prompt('请输入 Claude API Key (从 https://console.anthropic.com/ 获取):');
+        const replicate = prompt('请输入 Replicate API Token (从 https://replicate.com/account/api-tokens 获取):');
+        if (anthropic && replicate) {
+          apiKeys.anthropic = anthropic;
+          apiKeys.replicate = replicate;
+          localStorage.setItem('anthropic_key', anthropic);
+          localStorage.setItem('replicate_key', replicate);
+          return true;
+        }
+        alert('需要 API Key 才能使用合成功能');
+        return false;
+      }
+      return true;
+    }
+
+    /* ===== 初始化 ===== */
+    async function loadIDSData() {
+      try {
+        const response = await fetch('ids.txt');
+        if (!response.ok) throw new Error('无法加载 ids.txt');
+        const text = await response.text();
+        const lines = text.split('\n');
+        for (const line of lines) {
+          const parsed = parseIDSLine(line);
+          if (parsed && parsed.char) idsMap.set(parsed.char, parsed);
+        }
+        idsLoaded = true;
+        console.log(`加载了 ${idsMap.size} 个汉字数据`);
+      } catch (err) {
+        console.error('加载 IDS 数据失败:', err);
+        alert('无法加载汉字数据库，请确保 ids.txt 文件存在');
+      }
+    }
+
+    function init() {
+      loadIDSData();
+      renderCharInputs();
+      renderPresets();
+      renderRecent();
+      renderHistory();
+      updateClock();
+      setInterval(updateClock, 60000);
+
+      const hiddenInput = document.getElementById('hiddenInput');
+      hiddenInput.addEventListener('input', function(e) {
+        const char = e.target.value;
+        if (char && /[\u4e00-\u9fa5]/.test(char)) {
+          inputChars[activeIndex] = char;
+          renderCharInputs();
+          e.target.value = '';
+          if (activeIndex < currentCount - 1) {
+            activeIndex++;
+            renderCharInputs();
+            hiddenInput.focus();
+          }
+        }
+      });
+
+      document.addEventListener('click', function(e) {
+        if (e.target.closest('.char-box') && !e.target.closest('.char-box').classList.contains('empty')) {
+          hiddenInput.focus();
+        }
+      });
+    }
+
+    /* ===== 合成页面功能 ===== */
+    function setCount(n) {
+      currentCount = n;
+      document.querySelectorAll('.count-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', i === n - 2);
+      });
+      inputChars = new Array(n).fill('');
+      activeIndex = 0;
+      renderCharInputs();
+      renderPresets();
+    }
+
+    function renderCharInputs() {
+      const container = document.getElementById('charInputs');
+      container.innerHTML = '';
+      for (let i = 0; i < currentCount; i++) {
+        const box = document.createElement('div');
+        const hasChar = inputChars[i] && inputChars[i].trim();
+        box.className = `char-box ${!hasChar ? 'empty' : ''} ${i === activeIndex ? 'active' : ''} ${hasChar ? 'has-content' : ''}`;
+        box.textContent = hasChar ? inputChars[i] : '+';
+        box.onclick = () => { activeIndex = i; renderCharInputs(); document.getElementById('hiddenInput').focus(); };
+        container.appendChild(box);
+      }
+      updateComposeButton();
+    }
+
+    function renderPresets() {
+      const container = document.getElementById('hintChips');
+      container.innerHTML = '';
+      PRESETS[currentCount].forEach(word => {
+        const chip = document.createElement('div');
+        chip.className = 'hint-chip';
+        chip.textContent = word;
+        chip.onclick = () => {
+          inputChars = word.split('').slice(0, currentCount);
+          activeIndex = Math.min(currentCount - 1, word.length);
+          renderCharInputs();
+        };
+        container.appendChild(chip);
+      });
+    }
+
+    function updateComposeButton() {
+      const btn = document.getElementById('composeBtn');
+      const hasAllChars = inputChars.slice(0, currentCount).every(c => c && c.trim());
+      btn.disabled = !hasAllChars;
+    }
+
+    function renderRecent() {
+      const container = document.getElementById('recentList');
+      container.innerHTML = '';
+      history.slice(0, 10).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.onclick = () => viewHistoryItem(item);
+        if (item.imageUrl) {
+          div.innerHTML = `
+            <div class="history-thumb"><img src="${item.imageUrl}" alt="${item.word}" style="width:100%;height:100%;object-fit:cover;"></div>
+            <div class="history-word">${item.word}</div>
+          `;
+        } else {
+          div.innerHTML = `
+            <div class="history-thumb" style="font-size:32px; color: var(--text-primary);">${item.word[0]}</div>
+            <div class="history-word">${item.word}</div>
+          `;
+        }
+        container.appendChild(div);
+      });
+    }
+
+    async function startCompose() {
+      const word = inputChars.slice(0, currentCount).join('');
+      if (!word || word.length < 2) {
+        alert('请至少输入2个汉字');
+        return;
+      }
+
+      if (!idsLoaded) {
+        alert('汉字数据库尚未加载完成，请稍后再试');
+        return;
+      }
+
+      if (!checkApiKeys()) return;
+
+      // 切换到加载状态
+      document.getElementById('inputState').classList.remove('active');
+      document.getElementById('loadingState').classList.add('active');
+
+      // 初始化加载文案（第0次）
+      updateLoadingMessages(0);
+
+      try {
+        // 第一步：本地拆字，获取每个字的部件
+        const charComponents = [];
+        for (const char of word) {
+          if (idsMap.has(char)) {
+            const data = idsMap.get(char);
+            const components = data.isBasic ? [char] : (data.components || []);
+            charComponents.push({ char, components });
+          } else {
+            charComponents.push({ char, components: [char] });
+          }
+        }
+
+        // 第二步：带重试的合成流程
+        const result = await composeWithRetry(word, charComponents);
+
+        if (!result) {
+          throw new Error('合成失败，未能生成有效结果');
+        }
+
+        // 清除加载定时器
+        if (loadingTimer) clearInterval(loadingTimer);
+
+        // 保存结果（包含打分信息）
+        currentResult = {
+          id: Date.now(),
+          word,
+          imageUrl: result.imageUrl,
+          prompt: result.prompt,
+          strategy: result.strategy,
+          type: result.type,
+          score: result.scoreResult.total_score,
+          retryCount: result.retryCount,
+          scoreDetails: result.scoreResult,
+          timestamp: Date.now()
+        };
+
+        // 添加到历史
+        history.unshift(currentResult);
+        if (history.length > 50) history.pop();
+        saveHistory();
+
+        // 显示结果
+        document.getElementById('loadingState').classList.remove('active');
+        document.getElementById('resultState').classList.add('active');
+
+        // 显示图片
+        const resultImage = document.getElementById('resultImage');
+        resultImage.innerHTML = `<img src="${result.imageUrl}" alt="合成字" style="width:100%;height:100%;object-fit:cover;"><div class="watermark">汉字合成器</div>`;
+
+        document.getElementById('resultWord').textContent = `${word} (得分: ${result.scoreResult.total_score})`;
+        document.getElementById('saveBtn').textContent = '保存图片';
+        document.getElementById('saveBtn').classList.remove('saved');
+
+        renderRecent();
+        renderHistory();
+
+      } catch (err) {
+        if (loadingTimer) clearInterval(loadingTimer);
+        console.error('合成失败:', err);
+        alert('合成失败: ' + err.message);
+        document.getElementById('loadingState').classList.remove('active');
+        document.getElementById('inputState').classList.add('active');
+      }
+    }
+
+    async function regenerate() {
+      if (!currentResult) return;
+
+      if (!checkApiKeys()) return;
+
+      // 重新生成
+      const btn = document.querySelector('.btn-secondary');
+      btn.textContent = '生成中...';
+      btn.disabled = true;
+
+      try {
+        const word = currentResult.word;
+
+        // 重新拆字
+        const charComponents = [];
+        for (const char of word) {
+          if (idsMap.has(char)) {
+            const data = idsMap.get(char);
+            const components = data.isBasic ? [char] : (data.components || []);
+            charComponents.push({ char, components });
+          } else {
+            charComponents.push({ char, components: [char] });
+          }
+        }
+
+        // 完整重试流程
+        const result = await composeWithRetry(word, charComponents);
+
+        if (!result) {
+          throw new Error('重新生成失败');
+        }
+
+        // 更新当前结果
+        currentResult = {
+          id: Date.now(),
+          word,
+          imageUrl: result.imageUrl,
+          prompt: result.prompt,
+          strategy: result.strategy,
+          type: result.type,
+          score: result.scoreResult.total_score,
+          retryCount: result.retryCount,
+          scoreDetails: result.scoreResult,
+          timestamp: Date.now()
+        };
+
+        // 更新历史
+        const idx = history.findIndex(h => h.word === word && h.imageUrl === currentResult.imageUrl);
+        if (idx >= 0) {
+          history[idx] = { ...currentResult };
+        } else {
+          history.unshift(currentResult);
+          if (history.length > 50) history.pop();
+        }
+        saveHistory();
+
+        // 更新显示
+        const resultImage = document.getElementById('resultImage');
+        resultImage.innerHTML = `<img src="${result.imageUrl}" alt="合成字" style="width:100%;height:100%;object-fit:cover;"><div class="watermark">汉字合成器</div>`;
+
+        document.getElementById('resultWord').textContent = `${word} (得分: ${result.scoreResult.total_score})`;
+
+        renderRecent();
+        renderHistory();
+
+      } catch (err) {
+        alert('重新生成失败: ' + err.message);
+      } finally {
+        btn.textContent = '再来一张';
+        btn.disabled = false;
+      }
+    }
+
+    async function saveResult() {
+      if (!currentResult || !currentResult.imageUrl) return;
+
+      const btn = document.getElementById('saveBtn');
+      btn.textContent = '保存中...';
+
+      try {
+        const response = await fetch(currentResult.imageUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `汉字合成_${currentResult.word}_${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        btn.textContent = '已保存 ✓';
+        btn.classList.add('saved');
+        setTimeout(() => {
+          btn.textContent = '保存图片';
+          btn.classList.remove('saved');
+        }, 2000);
+      } catch (err) {
+        alert('保存失败: ' + err.message);
+        btn.textContent = '保存图片';
+      }
+    }
+
+    function backToInput() {
+      document.getElementById('resultState').classList.remove('active');
+      document.getElementById('inputState').classList.add('active');
+      // 重置加载状态
+      document.getElementById('loadingText').textContent = LOADING_MESSAGES[0];
+      for (let i = 0; i < 4; i++) {
+        const d = document.getElementById('d' + i);
+        d.className = 'step-dot' + (i === 0 ? ' active' : '');
+      }
+      // 重置结果图片区域
+      document.getElementById('resultImage').innerHTML = '<span style="font-size:130px;color:var(--text-primary);">?</span><div class="watermark">汉字合成器</div>';
+    }
+
+    function viewHistoryItem(item) {
+      currentResult = item;
+
+      const resultImage = document.getElementById('resultImage');
+      if (item.imageUrl) {
+        resultImage.innerHTML = `<img src="${item.imageUrl}" alt="合成字" style="width:100%;height:100%;object-fit:cover;"><div class="watermark">汉字合成器</div>`;
+      } else {
+        resultImage.innerHTML = `<span style="font-size:130px;color:var(--text-primary);">${item.word[0]}</span><div class="watermark">汉字合成器</div>`;
+      }
+
+      document.getElementById('resultWord').textContent = item.word;
+      document.getElementById('saveBtn').textContent = '保存图片';
+      document.getElementById('saveBtn').classList.remove('saved');
+
+      document.getElementById('inputState').classList.remove('active');
+      document.getElementById('loadingState').classList.remove('active');
+      document.getElementById('resultState').classList.add('active');
+      switchTab('compose');
+    }
+
+    /* ===== 历史页面功能 ===== */
+    function renderHistory() {
+      const container = document.getElementById('historyGrid');
+      const emptyState = document.getElementById('emptyState');
+      const countEl = document.getElementById('historyCount');
+
+      countEl.textContent = `共 ${history.length} 个合成字`;
+
+      if (history.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'flex';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      container.innerHTML = '';
+      history.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = `history-card ${editMode ? 'edit-mode' : ''}`;
+        const glyphDisplay = item.imageUrl
+          ? `<img src="${item.imageUrl}" alt="${item.word}" style="width:100%;height:100%;object-fit:cover;">`
+          : `<span style="font-size:64px;color:var(--text-primary);">${item.word[0]}</span>`;
+
+        // 得分和策略信息
+        const scoreInfo = item.score ? `${item.score}分` : '';
+        const typeInfo = item.type ? `· ${item.type}` : '';
+        const retryInfo = item.retryCount && item.retryCount > 1 ? `(重试${item.retryCount}次)` : '';
+
+        card.innerHTML = `
+          <div class="delete-dot" onclick="event.stopPropagation(); deleteItem(${item.id})">×</div>
+          <div class="card-glyph">${glyphDisplay}</div>
+          <div class="card-word">${item.word}</div>
+          <div class="card-meta" style="font-size:11px;color:var(--text-secondary);text-align:center;">
+            ${scoreInfo}${typeInfo} ${retryInfo}
+          </div>
+          <div class="card-date">${formatDate(item.timestamp)}</div>
+          <div class="card-actions">
+            <div class="card-btn" onclick="event.stopPropagation(); regenHistoryItem(${item.id})">再来一张</div>
+            <div class="card-btn save" onclick="event.stopPropagation(); saveItem(this)">保存</div>
+          </div>
+        `;
+        card.onclick = () => viewHistoryItem(item);
+        container.appendChild(card);
+      });
+    }
+
+    function toggleEdit() {
+      editMode = !editMode;
+      document.getElementById('editBtn').textContent = editMode ? '完成' : '编辑';
+      document.getElementById('editLabel').textContent = editMode ? '点击 × 删除' : '长按卡片可删除';
+      document.getElementById('selectAllBtn').style.display = editMode ? 'block' : 'none';
+      renderHistory();
+    }
+
+    function deleteItem(id) {
+      history = history.filter(h => h.id !== id);
+      saveHistory();
+      renderHistory();
+      renderRecent();
+    }
+
+    function selectAll() {
+      history = [];
+      saveHistory();
+      toggleEdit();
+      renderHistory();
+      renderRecent();
+    }
+
+    async function regenHistoryItem(id) {
+      const item = history.find(h => h.id === id);
+      if (!item) return;
+
+      if (!checkApiKeys()) return;
+
+      try {
+        const word = item.word;
+
+        // 重新拆字
+        const charComponents = [];
+        for (const char of word) {
+          if (idsMap.has(char)) {
+            const data = idsMap.get(char);
+            const components = data.isBasic ? [char] : (data.components || []);
+            charComponents.push({ char, components });
+          } else {
+            charComponents.push({ char, components: [char] });
+          }
+        }
+
+        // 完整重试流程
+        const result = await composeWithRetry(word, charComponents);
+
+        if (!result) {
+          throw new Error('重新生成失败');
+        }
+
+        // 更新历史记录项
+        item.imageUrl = result.imageUrl;
+        item.prompt = result.prompt;
+        item.strategy = result.strategy;
+        item.type = result.type;
+        item.score = result.scoreResult.total_score;
+        item.retryCount = result.retryCount;
+        item.scoreDetails = result.scoreResult;
+        item.timestamp = Date.now();
+
+        saveHistory();
+        renderHistory();
+        renderRecent();
+      } catch (err) {
+        alert('重新生成失败: ' + err.message);
+      }
+    }
+
+    function saveItem(btn) {
+      btn.textContent = '已保存 ✓';
+      setTimeout(() => btn.textContent = '保存', 2000);
+    }
+
+    /* ===== 工具函数 ===== */
+    function switchTab(tab) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+
+      if (tab === 'compose') {
+        document.getElementById('composePage').classList.add('active');
+      } else {
+        document.getElementById('historyPage').classList.add('active');
+        renderHistory();
+      }
+
+      document.querySelectorAll('.tab-item').forEach((t, i) => {
+        if ((tab === 'compose' && i === 0) || (tab === 'history' && i === 1)) {
+          t.classList.add('active');
+        }
+      });
+    }
+
+    function formatDate(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const isYesterday = date.toDateString() === new Date(now - 86400000).toDateString();
+
+      if (isToday) return `今天 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      if (isYesterday) return `昨天 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      return `${date.getMonth() + 1}月${date.getDate()}日`;
+    }
+
+    function pad(n) { return n.toString().padStart(2, '0'); }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+
+    function saveHistory() {
+      localStorage.setItem('hanzi_demo_history', JSON.stringify(history));
+    }
+
+    /* ===== 启动 ===== */
+    init();
+  </script>
+</body>
+</html>
