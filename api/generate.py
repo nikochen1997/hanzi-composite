@@ -142,14 +142,24 @@ def generate_images(characters):
         except Exception as e:
             errors[index] = str(e)
 
+    # 并行生成2张
     t1 = threading.Thread(target=worker, args=(0,))
     t2 = threading.Thread(target=worker, args=(1,))
     t1.start()
     t2.start()
-    t1.join(timeout=180)
-    t2.join(timeout=180)
+    t1.join(timeout=250)
+    t2.join(timeout=250)
 
     images = [r for r in results if r is not None]
+
+    # 如果只成功了1张，再补一次
+    if len(images) == 1:
+        try:
+            extra = call_api(prompt, 3)
+            images.append(extra)
+        except Exception:
+            pass
+
     if images:
         return images
 

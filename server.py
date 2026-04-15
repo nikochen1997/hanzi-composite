@@ -228,6 +228,15 @@ def generate_images(characters):
     images = [r for r in results if r is not None]
     error_msgs = [e for e in errors if e is not None]
 
+    # 如果只成功了1张，再补一次
+    if len(images) == 1:
+        print("只成功1张，补生成第2张...")
+        try:
+            extra = call_api(prompt, 3)
+            images.append(extra)
+        except Exception as e:
+            print(f"补生成失败: {e}")
+
     if images:
         print(f"成功生成 {len(images)} 张图片")
         return images
