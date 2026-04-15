@@ -2,7 +2,7 @@
 
 import json
 import os
-import threading
+
 from http.server import BaseHTTPRequestHandler
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -132,39 +132,8 @@ def call_api(prompt, attempt_number):
 
 def generate_images(characters):
     prompt = build_prompt(characters)
-
-    results = [None, None]
-    errors = [None, None]
-
-    def worker(index):
-        try:
-            results[index] = call_api(prompt, index + 1)
-        except Exception as e:
-            errors[index] = str(e)
-
-    # 并行生成2张
-    t1 = threading.Thread(target=worker, args=(0,))
-    t2 = threading.Thread(target=worker, args=(1,))
-    t1.start()
-    t2.start()
-    t1.join(timeout=250)
-    t2.join(timeout=250)
-
-    images = [r for r in results if r is not None]
-
-    # 如果只成功了1张，再补一次
-    if len(images) == 1:
-        try:
-            extra = call_api(prompt, 3)
-            images.append(extra)
-        except Exception:
-            pass
-
-    if images:
-        return images
-
-    error_msgs = [e for e in errors if e is not None]
-    raise Exception("生成失败: " + "; ".join(error_msgs))
+    image = call_api(prompt, 1)
+    return [image]
 
 
 class handler(BaseHTTPRequestHandler):

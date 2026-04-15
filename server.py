@@ -4,7 +4,7 @@
 import os
 import json
 import time
-import threading
+
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -201,47 +201,16 @@ def call_images_api(prompt, attempt_number):
 
 
 def generate_images(characters):
-    """并行生成2张图片"""
+    """生成1张图片"""
     word = "".join(characters)
     print(f"\n{'='*50}")
-    print(f"开始为 \"{word}\" 生成2张图片...")
+    print(f"开始为 \"{word}\" 生成图片...")
     print(f"{'='*50}")
 
     prompt = build_prompt(characters)
-
-    results = [None, None]
-    errors = [None, None]
-
-    def worker(index):
-        try:
-            results[index] = call_api(prompt, index + 1)
-        except Exception as e:
-            errors[index] = str(e)
-
-    t1 = threading.Thread(target=worker, args=(0,))
-    t2 = threading.Thread(target=worker, args=(1,))
-    t1.start()
-    t2.start()
-    t1.join(timeout=180)
-    t2.join(timeout=180)
-
-    images = [r for r in results if r is not None]
-    error_msgs = [e for e in errors if e is not None]
-
-    # 如果只成功了1张，再补一次
-    if len(images) == 1:
-        print("只成功1张，补生成第2张...")
-        try:
-            extra = call_api(prompt, 3)
-            images.append(extra)
-        except Exception as e:
-            print(f"补生成失败: {e}")
-
-    if images:
-        print(f"成功生成 {len(images)} 张图片")
-        return images
-
-    raise Exception("图片生成失败: " + "; ".join(error_msgs))
+    image = call_api(prompt, 1)
+    print("成功生成 1 张图片")
+    return [image]
 
 
 class MyHandler(SimpleHTTPRequestHandler):

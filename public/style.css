@@ -376,6 +376,10 @@ body { display: flex; justify-content: center; align-items: center; background: 
   justify-content: center;
   width: 100%;
 }
+.image-option.single {
+  width: 220px;
+  height: 220px;
+}
 .image-option {
   width: 160px;
   height: 160px;

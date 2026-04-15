@@ -202,57 +202,59 @@ function renderDualImages() {
   const container = document.getElementById('dualImages');
   container.innerHTML = '';
 
-  currentImages.forEach((imgData, index) => {
+  // 单张大图展示
+  if (currentImages.length > 0) {
+    selectedImageIndex = 0;
     const option = document.createElement('div');
-    option.className = `image-option ${selectedImageIndex === index ? 'selected' : ''}`;
-    option.onclick = () => selectImage(index);
-    option.innerHTML = `<img src="${imgData}" alt="合成字${index + 1}">`;
+    option.className = 'image-option single';
+    option.innerHTML = `<img src="${currentImages[0]}" alt="合成字">`;
     container.appendChild(option);
-  });
-
-  document.getElementById('resultWord').textContent = currentWord + ' - 请选择你喜欢的版本';
-
-  // 如果已选择图片，启用操作按钮
-  const actions = document.getElementById('resultActions');
-  if (selectedImageIndex >= 0) {
-    actions.style.opacity = '1';
-    actions.style.pointerEvents = 'auto';
-  } else {
-    actions.style.opacity = '0.5';
-    actions.style.pointerEvents = 'none';
   }
-}
 
-function selectImage(index) {
-  selectedImageIndex = index;
+  document.getElementById('resultWord').textContent = currentWord;
 
-  // 更新选中状态
-  document.querySelectorAll('.image-option').forEach((el, i) => {
-    el.classList.toggle('selected', i === index);
-  });
-
-  // 启用操作按钮
+  // 直接启用按钮
   const actions = document.getElementById('resultActions');
   actions.style.opacity = '1';
   actions.style.pointerEvents = 'auto';
-
-  document.getElementById('resultWord').textContent = currentWord + ' - 已选择版本 ' + (index + 1);
 }
 
 async function regenerate() {
-  if (selectedImageIndex < 0) return;
-
   const btn = document.querySelector('.btn-action-primary');
   btn.textContent = '生成中...';
   btn.disabled = true;
 
   try {
-    // 重新生成 - 使用当前的4个字
     inputChars = currentWord.split('');
-    await startCompose();
+
+    // 回到加载状态
+    document.getElementById('resultState').classList.remove('active');
+    document.getElementById('loadingState').classList.add('active');
+    startLoadingAnimation();
+
+    const response = await fetch(`${API_BASE}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characters: inputChars })
+    });
+
+    const data = await response.json();
+    stopLoadingAnimation();
+
+    if (!data.success) throw new Error(data.error || '生成失败');
+
+    currentImages = data.images;
+    selectedImageIndex = 0;
+
+    document.getElementById('loadingState').classList.remove('active');
+    document.getElementById('resultState').classList.add('active');
+    renderDualImages();
 
   } catch (err) {
+    stopLoadingAnimation();
     alert('重新生成失败: ' + err.message);
+    document.getElementById('loadingState').classList.remove('active');
+    document.getElementById('resultState').classList.add('active');
   } finally {
     btn.textContent = '重新生成';
     btn.disabled = false;
