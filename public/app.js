@@ -1,8 +1,36 @@
 /* ===== 数据 ===== */
-const PRESETS = [
+// 每次页面加载从中随机抽 8 个展示（刷新即换一批）
+const PRESET_POOL = [
   '逢考必过', '财源广进', '心想事成', '万事如意',
-  '恭喜发财', '一帆风顺', '马到成功', '喜上眉梢'
+  '恭喜发财', '一帆风顺', '马到成功', '喜上眉梢',
+  '步步高升', '龙马精神', '花开富贵', '年年有余',
+  '岁岁平安', '大吉大利', '五福临门', '六六大顺',
+  '七星高照', '八方来财', '九九同心', '十全十美',
+  '金玉满堂', '笑口常开', '前程似锦', '鹏程万里',
+  '旗开得胜', '蒸蒸日上', '日新月异', '春华秋实',
+  '和气生财', '招财进宝', '日进斗金', '双喜临门',
+  '紫气东来', '学业有成', '才高八斗', '博学多才',
+  '温故知新', '举一反三', '持之以恒', '精益求精',
+  '实事求是', '脚踏实地', '顶天立地', '厚德载物',
+  '自强不息', '水到渠成', '画龙点睛', '开门见山',
+  '锦上添花', '雪中送炭', '百里挑一', '一鸣惊人',
+  '百尺竿头', '更进一步', '同舟共济', '众志成城',
+  '国泰民安', '风调雨顺', '五谷丰登', '六畜兴旺',
+  '阖家欢乐', '天伦之乐', '相亲相爱', '百年好合',
+  '早生贵子', '连中三元', '金榜题名', '出人头地'
 ];
+const PRESET_DISPLAY_COUNT = 8;
+
+function shufflePick(pool, count) {
+  const arr = pool.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+  }
+  return arr.slice(0, Math.min(count, arr.length));
+}
 
 const LOADING_MESSAGES = [
   '正在拆解汉字结构...',
@@ -79,7 +107,7 @@ function renderCharInputs() {
 function renderPresets() {
   const container = document.getElementById('hintChips');
   container.innerHTML = '';
-  PRESETS.forEach(word => {
+  shufflePick(PRESET_POOL, PRESET_DISPLAY_COUNT).forEach(word => {
     const chip = document.createElement('div');
     chip.className = 'hint-chip';
     chip.textContent = word;
@@ -98,9 +126,35 @@ function updateComposeButton() {
   btn.disabled = !hasAllChars;
 }
 
+function recordSuccessfulGeneration(word, images) {
+  if (!word || word.length !== 4 || !images || !images.length) return;
+  const id = Date.now();
+  history.unshift({
+    id,
+    word,
+    selectedImage: images[0],
+    allImages: images.slice(),
+    timestamp: id
+  });
+  if (history.length > 50) history.pop();
+  saveHistory();
+  renderRecent();
+  const historyPage = document.getElementById('historyPage');
+  if (historyPage && historyPage.classList.contains('active')) {
+    renderHistory();
+  }
+}
+
 function renderRecent() {
   const container = document.getElementById('recentList');
   container.innerHTML = '';
+  if (history.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-empty';
+    empty.textContent = '生成成功后会出现在这里';
+    container.appendChild(empty);
+    return;
+  }
   history.slice(0, 10).forEach(item => {
     const div = document.createElement('div');
     div.className = 'history-item';
@@ -158,6 +212,7 @@ async function startCompose() {
 
     // 渲染双图
     renderDualImages();
+    recordSuccessfulGeneration(currentWord, currentImages);
 
   } catch (err) {
     stopLoadingAnimation();
@@ -249,6 +304,7 @@ async function regenerate() {
     document.getElementById('loadingState').classList.remove('active');
     document.getElementById('resultState').classList.add('active');
     renderDualImages();
+    recordSuccessfulGeneration(currentWord, currentImages);
 
   } catch (err) {
     stopLoadingAnimation();
@@ -283,21 +339,7 @@ async function saveResult() {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
 
-    // 保存到历史
-    const historyItem = {
-      id: Date.now(),
-      word: currentWord,
-      selectedImage: imageUrl,
-      allImages: currentImages,
-      timestamp: Date.now()
-    };
-    history.unshift(historyItem);
-    if (history.length > 50) history.pop();
-    saveHistory();
-
-    // 更新UI
-    renderRecent();
-    renderHistory();
+    // 历史已在生成成功时写入，此处仅下载文件
 
     btn.textContent = '已保存 ✓';
     btn.classList.add('saved');
@@ -329,13 +371,17 @@ function backToInput() {
 }
 
 function viewHistoryItem(item) {
-  if (!item.allImages || item.allImages.length === 0) return;
+  if (!item || !item.word) return;
+  if (!item.allImages || item.allImages.length === 0) {
+    if (!item.selectedImage) return;
+    currentImages = [item.selectedImage];
+  } else {
+    currentImages = item.allImages;
+  }
 
   currentWord = item.word;
-  currentImages = item.allImages;
 
-  // 找到之前选择的图片索引
-  selectedImageIndex = item.allImages.indexOf(item.selectedImage);
+  selectedImageIndex = currentImages.indexOf(item.selectedImage);
   if (selectedImageIndex < 0) selectedImageIndex = 0;
 
   // 显示结果
