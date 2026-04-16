@@ -15,52 +15,30 @@ API_KEY = "sk-Xxdgl6xcoQHBlU0Gxn7B6NxR8aB9I3edPOJDbr1SLJeVVZzS"
 BASE_URL = "https://api.viviai.cc/v1"
 PORT = 3000
 
-# 规则文件目录
-RULES_DIR = Path(__file__).parent / "backend" / "rules"
-RULE_FILES = ["拓扑编码库.md", "几何优化库.md", "风格特征库.md", "语义校验库.md"]
+# 精简版规则文件
+RULES_FILE = Path(__file__).parent / "合体字规则_精简版.md"
 
-# 缓存规则内容
 rules_cache = None
 
 
 def load_rules():
-    """加载所有规则文档"""
     global rules_cache
     if rules_cache is not None:
         return rules_cache
-
-    rules = {}
-    for filename in RULE_FILES:
-        filepath = RULES_DIR / filename
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                rules[filename.replace(".md", "")] = f.read()
-        except FileNotFoundError:
-            print(f"  警告: 规则文件不存在 {filepath}")
-            rules[filename.replace(".md", "")] = ""
-
-    rules_cache = rules
-    return rules
+    try:
+        with open(RULES_FILE, "r", encoding="utf-8") as f:
+            rules_cache = f.read()
+    except FileNotFoundError:
+        print(f"  警告: 规则文件不存在 {RULES_FILE}")
+        rules_cache = ""
+    return rules_cache
 
 
 def build_prompt(characters):
-    """构建完整的 Prompt"""
     rules = load_rules()
     word = "".join(characters)
 
-    return f"""你是一个专业的中国书法合体字设计师。你需要根据以下四个规则库，将用户给你的4个汉字合成为一个艺术合体字。
-
-== 拓扑编码库 ==
-{rules.get('拓扑编码库', '')}
-
-== 几何优化库 ==
-{rules.get('几何优化库', '')}
-
-== 风格特征库 ==
-{rules.get('风格特征库', '')}
-
-== 语义校验库 ==
-{rules.get('语义校验库', '')}
+    return f"""{rules}
 
 现在请将以下4个字合成为一个合体字：{word}
 
@@ -69,8 +47,7 @@ def build_prompt(characters):
 2. 整体构图为正方形
 3. 风格为传统毛笔书法，有墨迹质感和笔锋变化
 4. 正面平视角度，90度正交俯视，无透视，无3D效果
-5. 可以根据词语含义进行意象化设计（如将特征性的笔画异化为与词义相关的图形）
-6. 请直接生成图片"""
+5. 请直接生成图片"""
 
 
 def call_api(prompt, attempt_number):

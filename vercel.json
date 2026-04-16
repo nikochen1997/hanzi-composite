@@ -6,7 +6,7 @@
       "use": "@vercel/python",
       "config": {
         "maxDuration": 300,
-        "includeFiles": "rules/**"
+        "includeFiles": "合体字规则_精简版.md"
       }
     },
     {
