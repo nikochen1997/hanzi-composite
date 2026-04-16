@@ -42,8 +42,41 @@ const LOADING_MESSAGES = [
 // 后端API地址（Vercel部署时与前端同域）
 const API_BASE = '';
 
-// 历史记录
-let history = JSON.parse(localStorage.getItem('hechengzhi_history')) || [];
+// 本地历史：仅存缩略图 URL/base64，且条数有上限（避免 localStorage 约 5MB 配额导致「合成失败」误报）
+const HISTORY_KEY = 'hechengzhi_history';
+const MAX_HISTORY_ITEMS = 20;
+
+function normalizeHistoryEntry(raw) {
+  if (!raw || typeof raw.word !== 'string' || raw.word.length !== 4) return null;
+  const selectedImage =
+    raw.selectedImage ||
+    (Array.isArray(raw.allImages) && raw.allImages[0]) ||
+    '';
+  if (!selectedImage) return null;
+  return {
+    id: typeof raw.id === 'number' ? raw.id : Date.now(),
+    word: raw.word,
+    selectedImage,
+    timestamp: typeof raw.timestamp === 'number' ? raw.timestamp : Date.now()
+  };
+}
+
+function loadHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const item of raw) {
+      const n = normalizeHistoryEntry(item);
+      if (n) out.push(n);
+    }
+    return out.slice(0, MAX_HISTORY_ITEMS);
+  } catch (_) {
+    return [];
+  }
+}
+
+let history = loadHistory();
 
 /* ===== 状态 ===== */
 let inputChars = ['', '', '', ''];
@@ -60,6 +93,7 @@ function init() {
   renderPresets();
   renderRecent();
   renderHistory();
+  saveHistory();
   updateClock();
   setInterval(updateClock, 60000);
 
@@ -133,10 +167,9 @@ function recordSuccessfulGeneration(word, images) {
     id,
     word,
     selectedImage: images[0],
-    allImages: images.slice(),
     timestamp: id
   });
-  if (history.length > 50) history.pop();
+  while (history.length > MAX_HISTORY_ITEMS) history.pop();
   saveHistory();
   renderRecent();
   const historyPage = document.getElementById('historyPage');
@@ -212,7 +245,11 @@ async function startCompose() {
 
     // 渲染双图
     renderDualImages();
-    recordSuccessfulGeneration(currentWord, currentImages);
+    try {
+      recordSuccessfulGeneration(currentWord, currentImages);
+    } catch (e) {
+      console.warn('写入本地历史失败（不影响本次生成）', e);
+    }
 
   } catch (err) {
     stopLoadingAnimation();
@@ -304,7 +341,11 @@ async function regenerate() {
     document.getElementById('loadingState').classList.remove('active');
     document.getElementById('resultState').classList.add('active');
     renderDualImages();
-    recordSuccessfulGeneration(currentWord, currentImages);
+    try {
+      recordSuccessfulGeneration(currentWord, currentImages);
+    } catch (e) {
+      console.warn('写入本地历史失败（不影响本次生成）', e);
+    }
 
   } catch (err) {
     stopLoadingAnimation();
@@ -512,8 +553,57 @@ function updateClock() {
   document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
+function isQuotaError(e) {
+  return (
+    e &&
+    (e.name === 'QuotaExceededError' ||
+      e.code === 22 ||
+      e.code === 1014)
+  );
+}
+
 function saveHistory() {
-  localStorage.setItem('hechengzhi_history', JSON.stringify(history));
+  const slimRow = (h) => ({
+    id: h.id,
+    word: h.word,
+    selectedImage: h.selectedImage,
+    timestamp: h.timestamp
+  });
+
+  while (history.length > MAX_HISTORY_ITEMS) history.pop();
+
+  const tryWrite = (rows) => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(rows));
+  };
+
+  let rows = history.map(slimRow);
+  try {
+    tryWrite(rows);
+    return;
+  } catch (e) {
+    if (!isQuotaError(e)) {
+      console.warn('saveHistory', e);
+      return;
+    }
+  }
+
+  while (history.length > 0) {
+    history.pop();
+    rows = history.map(slimRow);
+    try {
+      tryWrite(rows);
+      return;
+    } catch (e) {
+      if (!isQuotaError(e)) {
+        console.warn('saveHistory(trim)', e);
+        return;
+      }
+    }
+  }
+
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+  } catch (_) {}
 }
 
 /* ===== 启动 ===== */
