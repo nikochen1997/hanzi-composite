@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 .vercel/
 .DS_Store
+
+# 其他项目文件暂放于此目录，不纳入本仓库版本控制
+miniprogram/
+codebody-*
