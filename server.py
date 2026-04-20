@@ -57,9 +57,9 @@ def call_api(prompt, attempt_number):
 
     print(f"  [尝试 {attempt_number}] 调用 API... (prompt长度: {len(final_prompt)} 字符)")
 
-    # 使用 OpenAI 兼容的 chat completions 接口（nano-banana-2 支持 openai 端点）
+    # 使用 OpenAI 兼容的 chat completions 接口（nano-banana-2-1K 支持 openai 端点）
     payload = json.dumps({
-        "model": "nano-banana-2",
+        "model": "nano-banana-2-1K",
         "messages": [
             {
                 "role": "user",
@@ -140,7 +140,7 @@ def call_api(prompt, attempt_number):
 def call_images_api(prompt, attempt_number):
     """备用：通过 images/generations 端点生成"""
     payload = json.dumps({
-        "model": "nano-banana-2",
+        "model": "nano-banana-2-1K",
         "prompt": prompt,
         "n": 1,
         "size": "1024x1024"
