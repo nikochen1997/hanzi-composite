@@ -57,16 +57,14 @@ def call_api(prompt, attempt_number):
 
     print(f"  [尝试 {attempt_number}] 调用 API... (prompt长度: {len(final_prompt)} 字符)")
 
-    # 使用 OpenAI 兼容的 chat completions 接口（nano-banana-2-1K 支持 openai 端点）
+    # 使用 OpenAI 兼容的 chat completions 接口（gpt-image-2）
     payload = json.dumps({
-        "model": "nano-banana-2-1K",
-        "messages": [
-            {
-                "role": "user",
-                "content": final_prompt
-            }
-        ],
-        "max_tokens": 4096
+        "model": "gpt-image-2",
+        "messages": [{"role": "user", "content": final_prompt}],
+        "max_tokens": 4096,
+        "temperature": 0.8,
+        "top_p": 1,
+        "frequency_penalty": 0.1
     }).encode("utf-8")
 
     req = Request(

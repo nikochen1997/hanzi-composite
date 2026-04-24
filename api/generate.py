@@ -53,9 +53,12 @@ def call_api(prompt, attempt_number):
     final_prompt = prompt + variant
 
     payload = json.dumps({
-        "model": "nano-banana-2-1K",
+        "model": "gpt-image-2",
         "messages": [{"role": "user", "content": final_prompt}],
-        "max_tokens": 4096
+        "max_tokens": 4096,
+        "temperature": 0.8,
+        "top_p": 1,
+        "frequency_penalty": 0.1
     }).encode("utf-8")
 
     req = Request(
